@@ -220,7 +220,7 @@ def main() -> None:
         for name in ENV_VARS:
             require_env(name)
     except RuntimeError as exc:
-        print(str(exc), file=sys.stderr)
+        log(str(exc), LogColor.ERROR, error=True)
         sys.exit(1)
 
     handle_a = os.environ["ACCOUNT_A_HANDLE"]
@@ -236,7 +236,7 @@ def main() -> None:
         profile_a = client_a.login(handle_a, app_password_a)
         profile_b = client_b.login(handle_b, app_password_b)
     except exceptions.AtProtocolError as exc:
-        print(f"Login failed: {exc}", file=sys.stderr)
+        log(f"Login failed: {exc}", LogColor.ERROR, error=True)
         sys.exit(1)
 
     did_a = profile_a.did
@@ -245,11 +245,11 @@ def main() -> None:
     log(f"Account A (Primary): {handle_a} ({did_a})")
     log(f"Account B (Secondary): {handle_b} ({did_b})")
 
-    log("\n📊 Fetching follows for Account A...")
+    log("📊 Fetching follows for Account A...")
     try:
         follows_a = get_follow_dids(client_a, did_a)
     except exceptions.AtProtocolError as exc:
-        print(f"Error fetching follows for A: {exc}", file=sys.stderr)
+        log(f"Error fetching follows for A: {exc}", LogColor.ERROR, error=True)
         sys.exit(1)
     log(f"✓ Account A follows {len(follows_a)} accounts")
 
@@ -257,7 +257,7 @@ def main() -> None:
     try:
         follows_b = get_follow_dids(client_b, did_b)
     except exceptions.AtProtocolError as exc:
-        print(f"Error fetching follows for B: {exc}", file=sys.stderr)
+        log(f"Error fetching follows for B: {exc}", LogColor.ERROR, error=True)
         sys.exit(1)
     log(f"✓ Account B follows {len(follows_b)} accounts")
 
@@ -265,7 +265,7 @@ def main() -> None:
     try:
         blocks_a = get_block_dids(client_a)
     except exceptions.AtProtocolError as exc:
-        print(f"Error fetching blocks for A: {exc}", file=sys.stderr)
+        log(f"Error fetching blocks for A: {exc}", LogColor.ERROR, error=True)
         sys.exit(1)
     log(f"✓ Account A blocks {len(blocks_a)} accounts")
 
@@ -273,14 +273,14 @@ def main() -> None:
     try:
         blocks_b = get_block_dids(client_b)
     except exceptions.AtProtocolError as exc:
-        print(f"Error fetching blocks for B: {exc}", file=sys.stderr)
+        log(f"Error fetching blocks for B: {exc}", LogColor.ERROR, error=True)
         sys.exit(1)
     log(f"✓ Account B blocks {len(blocks_b)} accounts")
 
     conflicting_follows = follows_a & follows_b
     if conflicting_follows:
         log(
-            f"\n⚠️  Found {len(conflicting_follows)} accounts followed by both - unfollowing on B...",
+            f"⚠️  Found {len(conflicting_follows)} accounts followed by both - unfollowing on B...",
             LogColor.WARNING,
         )
         for did in sorted(conflicting_follows):
@@ -298,7 +298,7 @@ def main() -> None:
     conflicting_blocks = blocks_a & blocks_b
     if conflicting_blocks:
         log(
-            f"\n⚠️  Found {len(conflicting_blocks)} accounts blocked by both - unblocking on A...",
+            f"⚠️  Found {len(conflicting_blocks)} accounts blocked by both - unblocking on A...",
             LogColor.WARNING,
         )
         for did in sorted(conflicting_blocks):
@@ -315,7 +315,7 @@ def main() -> None:
 
     to_block_on_b = sorted((follows_a - blocks_b) - {did_b})
     if to_block_on_b:
-        log(f"\n🚫 Blocking {len(to_block_on_b)} of A's follows on B...")
+        log(f"🚫 Blocking {len(to_block_on_b)} of A's follows on B...")
         for did in to_block_on_b:
             record = models.AppBskyGraphBlock.Record(
                 subject=did,
@@ -331,7 +331,7 @@ def main() -> None:
 
     to_block_on_a = sorted((follows_b - blocks_a) - {did_a})
     if to_block_on_a:
-        log(f"\n🚫 Blocking {len(to_block_on_a)} of B's follows on A...")
+        log(f"🚫 Blocking {len(to_block_on_a)} of B's follows on A...")
         for did in to_block_on_a:
             record = models.AppBskyGraphBlock.Record(
                 subject=did,
@@ -352,11 +352,11 @@ def main() -> None:
         and not to_block_on_a
     ):
         log(
-            "\n✓ Nothing to do. Accounts are already mutually exclusive.",
+            "✓ Nothing to do. Accounts are already mutually exclusive.",
             LogColor.SUCCESS,
         )
     else:
-        log("\n✓ Sync complete. Accounts are now mutually exclusive.", LogColor.SUCCESS)
+        log("✓ Sync complete. Accounts are now mutually exclusive.", LogColor.SUCCESS)
 
 
 if __name__ == "__main__":
