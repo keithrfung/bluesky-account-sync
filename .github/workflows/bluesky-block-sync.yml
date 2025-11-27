@@ -1,0 +1,34 @@
+name: Bluesky Account Sync
+
+on:
+  schedule:
+    - cron: "0 0 * * *" # Runs daily at midnight UTC
+  workflow_dispatch:
+
+jobs:
+  sync:
+    name: Sync Follows to Blocks
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v4
+        with:
+          enable-cache: true
+
+      - name: Set up Python
+        run: uv python install
+
+      - name: Install dependencies
+        run: uv sync
+
+      - name: Run follow-to-block sync
+        env:
+          ACCOUNT_A_HANDLE: ${{ secrets.ACCOUNT_A_HANDLE }}
+          ACCOUNT_A_APP_PASSWORD: ${{ secrets.ACCOUNT_A_APP_PASSWORD }}
+          ACCOUNT_B_HANDLE: ${{ secrets.ACCOUNT_B_HANDLE }}
+          ACCOUNT_B_APP_PASSWORD: ${{ secrets.ACCOUNT_B_APP_PASSWORD }}
+        run: uv run follow-to-block
