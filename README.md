@@ -50,6 +50,19 @@ The sync runs once a day at midnight UTC. This is controlled by [this line in th
 
 You can also trigger it manually at any time from the **Actions** tab by clicking **Bluesky Account Sync → Run workflow**.
 
+## Development
+
+Requires [uv](https://github.com/astral-sh/uv).
+
+```bash
+uv sync           # install dependencies
+uv run follow-to-block  # run the sync locally
+
+uv run ruff format .    # format
+uv run ruff check .     # lint
+uv run ty check .       # type check
+```
+
 ## Disclaimer
 
 This tool modifies your Bluesky account follows and blocks. Use at your own risk.
