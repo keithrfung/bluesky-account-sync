@@ -41,14 +41,6 @@ def log(message: str, color: LogColor = LogColor.NORMAL, error: bool = False) ->
     print(colored_message, file=sys.stderr if error else sys.stdout)
 
 
-ENV_VARS = [
-    "ACCOUNT_A_HANDLE",
-    "ACCOUNT_A_APP_PASSWORD",
-    "ACCOUNT_B_HANDLE",
-    "ACCOUNT_B_APP_PASSWORD",
-]
-
-
 def require_env(name: str) -> str:
     """Retrieve a required environment variable.
 
@@ -286,16 +278,13 @@ def main() -> None:
     - ACCOUNT_B_APP_PASSWORD: App password for secondary account
     """
     try:
-        for name in ENV_VARS:
-            require_env(name)
+        handle_a = require_env("ACCOUNT_A_HANDLE")
+        app_password_a = require_env("ACCOUNT_A_APP_PASSWORD")
+        handle_b = require_env("ACCOUNT_B_HANDLE")
+        app_password_b = require_env("ACCOUNT_B_APP_PASSWORD")
     except RuntimeError as exc:
         log(str(exc), LogColor.ERROR, error=True)
         sys.exit(1)
-
-    handle_a = os.environ["ACCOUNT_A_HANDLE"]
-    app_password_a = os.environ["ACCOUNT_A_APP_PASSWORD"]
-    handle_b = os.environ["ACCOUNT_B_HANDLE"]
-    app_password_b = os.environ["ACCOUNT_B_APP_PASSWORD"]
 
     log("🔐 Logging into Account A and Account B...")
     client_a, did_a = _login(handle_a, app_password_a)
