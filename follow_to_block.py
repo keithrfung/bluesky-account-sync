@@ -119,7 +119,7 @@ def get_block_dids(client: Client) -> set[str]:
     return dids
 
 
-def unfollow_account(client: Client, did: str) -> None:
+def unfollow_account(client: Client, did: str) -> bool:
     """Unfollow an account by deleting the follow record.
 
     Searches through the authenticated user's follow records to find and delete
@@ -128,6 +128,9 @@ def unfollow_account(client: Client, did: str) -> None:
     Args:
         client: Authenticated Bluesky client.
         did: The DID of the account to unfollow.
+
+    Returns:
+        True if the follow record was found and deleted, False if not found.
 
     Note:
         DELETE operations cost 1 rate-limit point (5,000/hour, 35,000/day).
@@ -157,11 +160,13 @@ def unfollow_account(client: Client, did: str) -> None:
                         "rkey": rkey,
                     }
                 )
-                return
+                return True
 
         cursor = records.cursor
         if not cursor:
             break
+
+    return False
 
 
 def _login(handle: str, password: str) -> tuple[Client, str]:
@@ -213,7 +218,7 @@ def _block_accounts(client: Client, handle: str, dids: list[str]) -> None:
             )
 
 
-def unblock_account(client: Client, did: str) -> None:
+def unblock_account(client: Client, did: str) -> bool:
     """Unblock an account by deleting the block record.
 
     Searches through the authenticated user's block records to find and delete
@@ -222,6 +227,9 @@ def unblock_account(client: Client, did: str) -> None:
     Args:
         client: Authenticated Bluesky client.
         did: The DID of the account to unblock.
+
+    Returns:
+        True if the block record was found and deleted, False if not found.
 
     Note:
         DELETE operations cost 1 rate-limit point (5,000/hour, 35,000/day).
@@ -251,11 +259,13 @@ def unblock_account(client: Client, did: str) -> None:
                         "rkey": rkey,
                     }
                 )
-                return
+                return True
 
         cursor = records.cursor
         if not cursor:
             break
+
+    return False
 
 
 def main() -> None:
@@ -334,9 +344,14 @@ def main() -> None:
         successfully_unfollowed: set[str] = set()
         for did in sorted(conflicting_follows):
             try:
-                unfollow_account(client_b, did)
-                log(f"  ✓ Unfollowed {did} on {handle_b}", LogColor.SUCCESS)
-                successfully_unfollowed.add(did)
+                if unfollow_account(client_b, did):
+                    log(f"  ✓ Unfollowed {did} on {handle_b}", LogColor.SUCCESS)
+                    successfully_unfollowed.add(did)
+                else:
+                    log(
+                        f"  ⚠ Follow record for {did} not found on {handle_b}",
+                        LogColor.WARNING,
+                    )
             except exceptions.AtProtocolError as exc:
                 log(
                     f"  ✗ Failed to unfollow {did} on B: {exc}",
@@ -354,9 +369,14 @@ def main() -> None:
         successfully_unblocked: set[str] = set()
         for did in sorted(conflicting_blocks):
             try:
-                unblock_account(client_a, did)
-                log(f"  ✓ Unblocked {did} on {handle_a}", LogColor.SUCCESS)
-                successfully_unblocked.add(did)
+                if unblock_account(client_a, did):
+                    log(f"  ✓ Unblocked {did} on {handle_a}", LogColor.SUCCESS)
+                    successfully_unblocked.add(did)
+                else:
+                    log(
+                        f"  ⚠ Block record for {did} not found on {handle_a}",
+                        LogColor.WARNING,
+                    )
             except exceptions.AtProtocolError as exc:
                 log(
                     f"  ✗ Failed to unblock {did} on A: {exc}",
