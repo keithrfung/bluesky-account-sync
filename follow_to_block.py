@@ -90,6 +90,8 @@ def get_follow_dids(client: Client, actor: str) -> set[str]:
             did = getattr(follow, "did", None)
             if did:
                 dids.add(did)
+            else:
+                log(f"⚠ Skipping follow record with no DID: {follow}", LogColor.WARNING)
         cursor = response.cursor
         if not cursor:
             break
@@ -117,6 +119,8 @@ def get_block_dids(client: Client) -> set[str]:
             did = getattr(profile, "did", None)
             if did:
                 dids.add(did)
+            else:
+                log(f"⚠ Skipping block record with no DID: {profile}", LogColor.WARNING)
         cursor = response.cursor
         if not cursor:
             break
