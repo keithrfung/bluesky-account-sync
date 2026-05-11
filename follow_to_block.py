@@ -1,4 +1,4 @@
-"""Synchronize follows to blocks between two Bluesky accounts."""
+"""Sync followers to blocks between two Bluesky accounts."""
 
 from __future__ import annotations
 
@@ -59,31 +59,34 @@ def require_env(name: str) -> str:
     return value
 
 
-def get_follow_dids(client: Client, actor: str) -> set[str]:
-    """Fetch all DIDs that a given actor follows.
+def get_follower_dids(client: Client, actor: str) -> set[str]:
+    """Fetch all DIDs of accounts that follow a given actor.
 
-    Uses pagination to retrieve all follows, handling cursors automatically.
+    Uses pagination to retrieve all followers, handling cursors automatically.
 
     Args:
         client: Authenticated Bluesky client.
-        actor: The DID or handle of the actor whose follows to retrieve.
+        actor: The DID or handle of the actor whose followers to retrieve.
 
     Returns:
-        A set of DIDs representing all accounts the actor follows.
+        A set of DIDs representing all accounts that follow the actor.
     """
     dids: set[str] = set()
     cursor: str | None = None
 
     while True:
-        response = client.app.bsky.graph.get_follows(
+        response = client.app.bsky.graph.get_followers(
             {"actor": actor, "limit": 100, "cursor": cursor}
         )
-        for follow in response.follows:
-            did = getattr(follow, "did", None)
+        for follower in response.followers:
+            did = getattr(follower, "did", None)
             if did:
                 dids.add(did)
             else:
-                log(f"⚠ Skipping follow record with no DID: {follow}", LogColor.WARNING)
+                log(
+                    f"⚠ Skipping follower record with no DID: {follower}",
+                    LogColor.WARNING,
+                )
         cursor = response.cursor
         if not cursor:
             break
@@ -120,53 +123,6 @@ def get_block_dids(client: Client) -> set[str]:
     return dids
 
 
-def unfollow_account(client: Client, did: str) -> bool:
-    """Unfollow an account by deleting the follow record.
-
-    Searches through the authenticated user's follow records to find and delete
-    the follow relationship with the specified DID.
-
-    Args:
-        client: Authenticated Bluesky client.
-        did: The DID of the account to unfollow.
-
-    Returns:
-        True if the follow record was found and deleted, False if not found.
-    """
-    assert client.me is not None
-    cursor: str | None = None
-
-    while True:
-        records = client.com.atproto.repo.list_records(
-            {
-                "repo": client.me.did,
-                "collection": "app.bsky.graph.follow",
-                "limit": 100,
-                "cursor": cursor,
-            }
-        )
-
-        for record in records.records:
-            subject = getattr(record.value, "subject", None)
-            if subject == did:
-                rkey = record.uri.split("/")[-1]
-                client.com.atproto.repo.delete_record(
-                    {
-                        "repo": client.me.did,
-                        "collection": "app.bsky.graph.follow",
-                        "rkey": rkey,
-                    }
-                )
-                time.sleep(_WRITE_DELAY_SECONDS)
-                return True
-
-        cursor = records.cursor
-        if not cursor:
-            break
-
-    return False
-
-
 def _login(handle: str, password: str) -> tuple[Client, str]:
     """Login to a Bluesky account and return the client and DID.
 
@@ -195,6 +151,9 @@ def _block_accounts(client: Client, handle: str, dids: list[str]) -> None:
         handle: The handle of the account performing the blocks (for logging).
         dids: List of DIDs to block.
 
+    Note:
+        CREATE operations cost 3 rate-limit points (~1,666 creates/hour, ~11,666/day).
+        See: https://docs.bsky.app/docs/advanced-guides/rate-limits
     """
     assert client.me is not None
     for did in dids:
@@ -214,62 +173,13 @@ def _block_accounts(client: Client, handle: str, dids: list[str]) -> None:
         time.sleep(_WRITE_DELAY_SECONDS)
 
 
-def unblock_account(client: Client, did: str) -> bool:
-    """Unblock an account by deleting the block record.
-
-    Searches through the authenticated user's block records to find and delete
-    the block relationship with the specified DID.
-
-    Args:
-        client: Authenticated Bluesky client.
-        did: The DID of the account to unblock.
-
-    Returns:
-        True if the block record was found and deleted, False if not found.
-    """
-    assert client.me is not None
-    cursor: str | None = None
-
-    while True:
-        records = client.com.atproto.repo.list_records(
-            {
-                "repo": client.me.did,
-                "collection": "app.bsky.graph.block",
-                "limit": 100,
-                "cursor": cursor,
-            }
-        )
-
-        for record in records.records:
-            subject = getattr(record.value, "subject", None)
-            if subject == did:
-                rkey = record.uri.split("/")[-1]
-                client.com.atproto.repo.delete_record(
-                    {
-                        "repo": client.me.did,
-                        "collection": "app.bsky.graph.block",
-                        "rkey": rkey,
-                    }
-                )
-                time.sleep(_WRITE_DELAY_SECONDS)
-                return True
-
-        cursor = records.cursor
-        if not cursor:
-            break
-
-    return False
-
-
 def main() -> None:
     """Synchronize two Bluesky accounts to maintain mutual exclusivity.
 
-    Account A is the primary account and Account B is the secondary account.
     The script ensures that:
-    - Any account followed by A is blocked on B
-    - Any account followed by B is blocked on A
-    - If both accounts follow the same account, B unfollows it (primary wins)
-    - If both accounts block the same account, A unblocks it (secondary wins)
+    - Anyone who follows Account B is blocked on Account A
+    - Anyone who follows Account A, but not B, is blocked on Account B
+    - Anyone who follows both accounts is blocked on A only
 
     Requires environment variables:
     - ACCOUNT_A_HANDLE: Handle for primary account
@@ -290,24 +200,24 @@ def main() -> None:
     client_a, did_a = _login(handle_a, app_password_a)
     client_b, did_b = _login(handle_b, app_password_b)
 
-    log(f"Account A (Primary): {handle_a} ({did_a})")
-    log(f"Account B (Secondary): {handle_b} ({did_b})")
+    log(f"Account A: {handle_a} ({did_a})")
+    log(f"Account B: {handle_b} ({did_b})")
 
-    log("📊 Fetching follows for Account A...")
+    log("📊 Fetching followers for Account A...")
     try:
-        follows_a = get_follow_dids(client_a, did_a)
+        followers_a = get_follower_dids(client_a, did_a)
     except exceptions.AtProtocolError as exc:
-        log(f"Error fetching follows for A: {exc}", LogColor.ERROR, error=True)
+        log(f"Error fetching followers for A: {exc}", LogColor.ERROR, error=True)
         sys.exit(1)
-    log(f"✓ Account A follows {len(follows_a)} accounts")
+    log(f"✓ Account A has {len(followers_a)} followers")
 
-    log("📊 Fetching follows for Account B...")
+    log("📊 Fetching followers for Account B...")
     try:
-        follows_b = get_follow_dids(client_b, did_b)
+        followers_b = get_follower_dids(client_b, did_b)
     except exceptions.AtProtocolError as exc:
-        log(f"Error fetching follows for B: {exc}", LogColor.ERROR, error=True)
+        log(f"Error fetching followers for B: {exc}", LogColor.ERROR, error=True)
         sys.exit(1)
-    log(f"✓ Account B follows {len(follows_b)} accounts")
+    log(f"✓ Account B has {len(followers_b)} followers")
 
     log("🚫 Fetching blocks for Account A...")
     try:
@@ -325,78 +235,22 @@ def main() -> None:
         sys.exit(1)
     log(f"✓ Account B blocks {len(blocks_b)} accounts")
 
-    conflicting_follows = follows_a & follows_b
-    if conflicting_follows:
-        log(
-            f"⚠️  Found {len(conflicting_follows)} accounts followed by both - unfollowing on B...",
-            LogColor.WARNING,
-        )
-        successfully_unfollowed: set[str] = set()
-        for did in sorted(conflicting_follows):
-            try:
-                if unfollow_account(client_b, did):
-                    log(f"  ✓ Unfollowed {did} on {handle_b}", LogColor.SUCCESS)
-                    successfully_unfollowed.add(did)
-                else:
-                    log(
-                        f"  ⚠ Follow record for {did} not found on {handle_b}",
-                        LogColor.WARNING,
-                    )
-            except exceptions.AtProtocolError as exc:
-                log(
-                    f"  ✗ Failed to unfollow {did} on B: {exc}",
-                    LogColor.ERROR,
-                    error=True,
-                )
-        follows_b -= successfully_unfollowed
-
-    conflicting_blocks = blocks_a & blocks_b
-    if conflicting_blocks:
-        log(
-            f"⚠️  Found {len(conflicting_blocks)} accounts blocked by both - unblocking on A...",
-            LogColor.WARNING,
-        )
-        successfully_unblocked: set[str] = set()
-        for did in sorted(conflicting_blocks):
-            try:
-                if unblock_account(client_a, did):
-                    log(f"  ✓ Unblocked {did} on {handle_a}", LogColor.SUCCESS)
-                    successfully_unblocked.add(did)
-                else:
-                    log(
-                        f"  ⚠ Block record for {did} not found on {handle_a}",
-                        LogColor.WARNING,
-                    )
-            except exceptions.AtProtocolError as exc:
-                log(
-                    f"  ✗ Failed to unblock {did} on A: {exc}",
-                    LogColor.ERROR,
-                    error=True,
-                )
-        blocks_a -= successfully_unblocked
-
-    to_block_on_b = sorted((follows_a - blocks_b) - {did_b})
-    if to_block_on_b:
-        log(f"🚫 Blocking {len(to_block_on_b)} of A's follows on B...")
-        _block_accounts(client_b, handle_b, to_block_on_b)
-
-    to_block_on_a = sorted((follows_b - blocks_a) - {did_a})
+    # Everyone who follows B → block on A
+    to_block_on_a = sorted((followers_b - blocks_a) - {did_a})
     if to_block_on_a:
-        log(f"🚫 Blocking {len(to_block_on_a)} of B's follows on A...")
+        log(f"🚫 Blocking {len(to_block_on_a)} of B's followers on A...")
         _block_accounts(client_a, handle_a, to_block_on_a)
 
-    if (
-        not conflicting_follows
-        and not conflicting_blocks
-        and not to_block_on_b
-        and not to_block_on_a
-    ):
-        log(
-            "✓ Nothing to do. Accounts are already mutually exclusive.",
-            LogColor.SUCCESS,
-        )
+    # Everyone who follows A but not B → block on B
+    to_block_on_b = sorted(((followers_a - followers_b) - blocks_b) - {did_b})
+    if to_block_on_b:
+        log(f"🚫 Blocking {len(to_block_on_b)} of A's exclusive followers on B...")
+        _block_accounts(client_b, handle_b, to_block_on_b)
+
+    if not to_block_on_a and not to_block_on_b:
+        log("✓ Nothing to do. Accounts are already in sync.", LogColor.SUCCESS)
     else:
-        log("✓ Sync complete. Accounts are now mutually exclusive.", LogColor.SUCCESS)
+        log("✓ Sync complete.", LogColor.SUCCESS)
 
 
 if __name__ == "__main__":
