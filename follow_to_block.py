@@ -161,6 +161,51 @@ def unfollow_account(client: Client, did: str) -> None:
             break
 
 
+def _login(handle: str, password: str) -> tuple[Client, str]:
+    """Login to a Bluesky account and return the client and DID.
+
+    Args:
+        handle: The account handle.
+        password: The app password.
+
+    Returns:
+        A tuple of (authenticated client, account DID).
+    """
+    client = Client()
+    try:
+        profile = client.login(handle, password)
+    except exceptions.AtProtocolError as exc:
+        log(f"Login failed for {handle}: {exc}", LogColor.ERROR, error=True)
+        sys.exit(1)
+    assert client.me is not None
+    return client, profile.did
+
+
+def _block_accounts(client: Client, handle: str, dids: list[str]) -> None:
+    """Block a list of accounts on the given client.
+
+    Args:
+        client: Authenticated Bluesky client.
+        handle: The handle of the account performing the blocks (for logging).
+        dids: List of DIDs to block.
+    """
+    assert client.me is not None
+    for did in dids:
+        record = models.AppBskyGraphBlock.Record(
+            subject=did,
+            created_at=client.get_current_time_iso(),
+        )
+        try:
+            client.app.bsky.graph.block.create(client.me.did, record)
+            log(f"  ✓ Blocked {did} on {handle}", LogColor.SUCCESS)
+        except exceptions.AtProtocolError as exc:
+            log(
+                f"  ✗ Failed to block {did} on {handle}: {exc}",
+                LogColor.ERROR,
+                error=True,
+            )
+
+
 def unblock_account(client: Client, did: str) -> None:
     """Unblock an account by deleting the block record.
 
@@ -231,21 +276,8 @@ def main() -> None:
     app_password_b = os.environ["ACCOUNT_B_APP_PASSWORD"]
 
     log("🔐 Logging into Account A and Account B...")
-    client_a = Client()
-    client_b = Client()
-
-    try:
-        profile_a = client_a.login(handle_a, app_password_a)
-        profile_b = client_b.login(handle_b, app_password_b)
-    except exceptions.AtProtocolError as exc:
-        log(f"Login failed: {exc}", LogColor.ERROR, error=True)
-        sys.exit(1)
-
-    assert client_a.me is not None
-    assert client_b.me is not None
-
-    did_a = profile_a.did
-    did_b = profile_b.did
+    client_a, did_a = _login(handle_a, app_password_a)
+    client_b, did_b = _login(handle_b, app_password_b)
 
     log(f"Account A (Primary): {handle_a} ({did_a})")
     log(f"Account B (Secondary): {handle_b} ({did_b})")
@@ -321,34 +353,12 @@ def main() -> None:
     to_block_on_b = sorted((follows_a - blocks_b) - {did_b})
     if to_block_on_b:
         log(f"🚫 Blocking {len(to_block_on_b)} of A's follows on B...")
-        for did in to_block_on_b:
-            record = models.AppBskyGraphBlock.Record(
-                subject=did,
-                created_at=client_b.get_current_time_iso(),
-            )
-            try:
-                client_b.app.bsky.graph.block.create(client_b.me.did, record)
-                log(f"  ✓ Blocked {did} on {handle_b}", LogColor.SUCCESS)
-            except exceptions.AtProtocolError as exc:
-                log(
-                    f"  ✗ Failed to block {did} on B: {exc}", LogColor.ERROR, error=True
-                )
+        _block_accounts(client_b, handle_b, to_block_on_b)
 
     to_block_on_a = sorted((follows_b - blocks_a) - {did_a})
     if to_block_on_a:
         log(f"🚫 Blocking {len(to_block_on_a)} of B's follows on A...")
-        for did in to_block_on_a:
-            record = models.AppBskyGraphBlock.Record(
-                subject=did,
-                created_at=client_a.get_current_time_iso(),
-            )
-            try:
-                client_a.app.bsky.graph.block.create(client_a.me.did, record)
-                log(f"  ✓ Blocked {did} on {handle_a}", LogColor.SUCCESS)
-            except exceptions.AtProtocolError as exc:
-                log(
-                    f"  ✗ Failed to block {did} on A: {exc}", LogColor.ERROR, error=True
-                )
+        _block_accounts(client_a, handle_a, to_block_on_a)
 
     if (
         not conflicting_follows
