@@ -128,6 +128,10 @@ def unfollow_account(client: Client, did: str) -> None:
     Args:
         client: Authenticated Bluesky client.
         did: The DID of the account to unfollow.
+
+    Note:
+        DELETE operations cost 1 rate-limit point (5,000/hour, 35,000/day).
+        See: https://docs.bsky.app/docs/advanced-guides/rate-limits
     """
     assert client.me is not None
     cursor: str | None = None
@@ -187,6 +191,10 @@ def _block_accounts(client: Client, handle: str, dids: list[str]) -> None:
         client: Authenticated Bluesky client.
         handle: The handle of the account performing the blocks (for logging).
         dids: List of DIDs to block.
+
+    Note:
+        CREATE operations cost 3 rate-limit points (~1,666 creates/hour, ~11,666/day).
+        See: https://docs.bsky.app/docs/advanced-guides/rate-limits
     """
     assert client.me is not None
     for did in dids:
@@ -214,6 +222,10 @@ def unblock_account(client: Client, did: str) -> None:
     Args:
         client: Authenticated Bluesky client.
         did: The DID of the account to unblock.
+
+    Note:
+        DELETE operations cost 1 rate-limit point (5,000/hour, 35,000/day).
+        See: https://docs.bsky.app/docs/advanced-guides/rate-limits
     """
     assert client.me is not None
     cursor: str | None = None
@@ -319,17 +331,19 @@ def main() -> None:
             f"⚠️  Found {len(conflicting_follows)} accounts followed by both - unfollowing on B...",
             LogColor.WARNING,
         )
+        successfully_unfollowed: set[str] = set()
         for did in sorted(conflicting_follows):
             try:
                 unfollow_account(client_b, did)
                 log(f"  ✓ Unfollowed {did} on {handle_b}", LogColor.SUCCESS)
+                successfully_unfollowed.add(did)
             except exceptions.AtProtocolError as exc:
                 log(
                     f"  ✗ Failed to unfollow {did} on B: {exc}",
                     LogColor.ERROR,
                     error=True,
                 )
-        follows_b -= conflicting_follows
+        follows_b -= successfully_unfollowed
 
     conflicting_blocks = blocks_a & blocks_b
     if conflicting_blocks:
@@ -337,17 +351,19 @@ def main() -> None:
             f"⚠️  Found {len(conflicting_blocks)} accounts blocked by both - unblocking on A...",
             LogColor.WARNING,
         )
+        successfully_unblocked: set[str] = set()
         for did in sorted(conflicting_blocks):
             try:
                 unblock_account(client_a, did)
                 log(f"  ✓ Unblocked {did} on {handle_a}", LogColor.SUCCESS)
+                successfully_unblocked.add(did)
             except exceptions.AtProtocolError as exc:
                 log(
                     f"  ✗ Failed to unblock {did} on A: {exc}",
                     LogColor.ERROR,
                     error=True,
                 )
-        blocks_a -= conflicting_blocks
+        blocks_a -= successfully_unblocked
 
     to_block_on_b = sorted((follows_a - blocks_b) - {did_b})
     if to_block_on_b:
