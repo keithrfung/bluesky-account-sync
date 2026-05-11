@@ -1,140 +1,55 @@
 # Bluesky Account Sync
 
-A toolkit for synchronizing and managing multiple Bluesky accounts. Keep your accounts organized with automated synchronization rules and policies.
+[![Lint](https://github.com/keithrfung/bluesky-account-sync/actions/workflows/lint.yml/badge.svg)](https://github.com/keithrfung/bluesky-account-sync/actions/workflows/lint.yml)
 
-## Features
+Automatically keeps two Bluesky accounts mutually exclusive — anyone followed by Account A gets blocked on Account B, and vice versa. Runs once a day for free using GitHub.
 
-### Follow-to-Block Sync (Current)
+## What it does
 
-Maintain mutual exclusivity between two accounts by automatically blocking accounts that are followed by the other. This ensures your accounts remain completely separate with no overlap in their social graphs.
+- Anyone Account A follows → blocked on Account B
+- Anyone Account B follows → blocked on Account A
+- If both accounts follow the same person → Account B unfollows them
+- If both accounts have blocked the same person → Account A unblocks them
 
-**Accounts:**
-- **Account A (Primary)**: The main account
-- **Account B (Secondary)**: The secondary account
+## Setup
 
-**Synchronization Rules:**
+### 1. Fork this repository
 
-1. **Mutual Blocking**: Any account followed by A is blocked on B, and vice versa
-2. **Conflict Resolution**:
-   - If both accounts follow the same account → B unfollows (primary wins)
-   - If both accounts block the same account → A unblocks (secondary wins)
-3. **Self-Protection**: Neither account will block itself
+Click **Fork** at the top right of this page to copy it to your own GitHub account.
 
-## Requirements
+### 2. Create app passwords for both Bluesky accounts
 
-- Python 3.11+
-- [uv](https://github.com/astral-sh/uv) package manager
-- Bluesky account credentials (handles and app passwords)
+An app password lets this tool log in on your behalf without using your real password.
 
-## Installation
+1. Log in to your first account at [bsky.app](https://bsky.app)
+2. Go to **Settings → App Passwords → Add App Password**
+3. Give it a name (e.g. `account-sync`) and save the password somewhere safe
+4. Repeat for your second account
 
-1. Clone the repository:
-   ```bash
-   git clone https://github.com/keithrfung/bluesky-account-sync.git
-   cd bluesky-account-sync
-   ```
+### 3. Add your credentials to GitHub
 
-2. Install dependencies:
-   ```bash
-   uv sync
-   ```
+1. In your forked repository, go to **Settings → Secrets and variables → Actions**
+2. Add these four secrets:
 
-## Configuration
+| Secret name | What to put in it |
+|---|---|
+| `ACCOUNT_A_HANDLE` | Your first account's handle (e.g. `you.bsky.social`) |
+| `ACCOUNT_A_APP_PASSWORD` | The app password you created for the first account |
+| `ACCOUNT_B_HANDLE` | Your second account's handle |
+| `ACCOUNT_B_APP_PASSWORD` | The app password you created for the second account |
 
-Set the following environment variables:
+### 4. Enable GitHub Actions
 
-- `ACCOUNT_A_HANDLE`: Handle for the primary account (e.g., `user.bsky.social`)
-- `ACCOUNT_A_APP_PASSWORD`: App password for the primary account
-- `ACCOUNT_B_HANDLE`: Handle for the secondary account
-- `ACCOUNT_B_APP_PASSWORD`: App password for the secondary account
+Go to the **Actions** tab in your forked repository and click **Enable workflows**.
 
-### Creating App Passwords
+That's it. The sync will run automatically every day.
 
-1. Go to [Bluesky Settings → App Passwords](https://bsky.app/settings/app-passwords)
-2. Create a new app password for each account
-3. Store them securely (they won't be shown again)
+## Schedule
 
-## Usage
+The sync runs once a day at midnight UTC. This is controlled by [this line in the workflow file](.github/workflows/bluesky-block-sync.yml#L5) — you can change the time there if you'd like.
 
-### Follow-to-Block Sync
-
-Run the follow-to-block sync:
-
-```bash
-uv run follow-to-block
-```
-
-Or directly with Python:
-
-```bash
-uv run python follow_to_block.py
-```
-
-### GitHub Actions (Automated)
-
-The repository includes a GitHub Actions workflow that runs automatically at midnight UTC daily. 
-
-To set it up:
-
-1. Go to your repository's Settings → Secrets and variables → Actions
-2. Add the following secrets:
-   - `ACCOUNT_A_HANDLE`
-   - `ACCOUNT_A_APP_PASSWORD`
-   - `ACCOUNT_B_HANDLE`
-   - `ACCOUNT_B_APP_PASSWORD`
-3. Enable GitHub Actions in your repository
-
-You can also manually trigger the workflow from the Actions tab.
-
-## Development
-
-### Code Quality Tools
-
-The project uses:
-
-- **ruff**: Fast Python linter and formatter
-- **mypy**: Static type checker
-
-Run checks:
-
-```bash
-# Format code
-uv run ruff format .
-
-# Lint code
-uv run ruff check .
-
-# Type check
-uv run mypy .
-```
-
-### Project Structure
-
-```
-.
-├── follow_to_block.py          # Follow-to-block sync script
-├── pyproject.toml              # Project configuration and dependencies
-├── .python-version             # Python version specification
-├── .github/
-│   └── workflows/
-│       └── bluesky-block-sync.yml  # GitHub Actions workflow
-└── README.md                   # This file
-```
-
-## How It Works
-
-### Follow-to-Block Sync
-
-1. **Authentication**: Logs into both accounts using app passwords
-2. **Data Collection**: Fetches follows and blocks for both accounts
-3. **Conflict Resolution**: Resolves any conflicting follows/blocks
-4. **Synchronization**: Applies blocks to maintain mutual exclusivity
-5. **Reporting**: Outputs detailed logs of all actions taken
-
-## License
-
-MIT
+You can also trigger it manually at any time from the **Actions** tab by clicking **Bluesky Account Sync → Run workflow**.
 
 ## Disclaimer
 
-This tool modifies your Bluesky account follows and blocks. Use at your own risk. Always test with non-critical accounts first.
+This tool modifies your Bluesky account follows and blocks. Use at your own risk.
