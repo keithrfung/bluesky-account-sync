@@ -6,10 +6,9 @@ Automatically keeps two Bluesky accounts mutually exclusive — anyone followed 
 
 ## What it does
 
-- Anyone Account A follows → blocked on Account B
-- Anyone Account B follows → blocked on Account A
-- If both accounts follow the same person → Account B unfollows them
-- If both accounts have blocked the same person → Account A unblocks them
+- Anyone who follows Account B → blocked on Account A
+- Anyone who follows Account A, but not B → blocked on Account B
+- Anyone who follows both accounts → blocked on Account A only, allowed on Account B
 
 ## Setup
 
