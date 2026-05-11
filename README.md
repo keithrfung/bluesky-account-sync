@@ -33,9 +33,9 @@ An app password lets this tool log in on your behalf without using your real pas
 
 | Secret name | What to put in it |
 |---|---|
-| `ACCOUNT_A_HANDLE` | Your first account's handle (e.g. `you.bsky.social`) |
+| `ACCOUNT_A_HANDLE` | Your first account's handle, without the `@` (e.g. `you.bsky.social`) |
 | `ACCOUNT_A_APP_PASSWORD` | The app password you created for the first account |
-| `ACCOUNT_B_HANDLE` | Your second account's handle |
+| `ACCOUNT_B_HANDLE` | Your second account's handle, without the `@` |
 | `ACCOUNT_B_APP_PASSWORD` | The app password you created for the second account |
 
 ### 4. Enable GitHub Actions
