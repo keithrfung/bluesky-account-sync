@@ -160,13 +160,16 @@ def _login(handle: str, password: str) -> tuple[Client, str]:
     return client, profile.did
 
 
-def _block_accounts(client: Client, handle: str, dids: list[str]) -> None:
+def _block_accounts(
+    client: Client, handle: str, dids: list[str], dry_run: bool = False
+) -> None:
     """Block a list of accounts on the given client.
 
     Args:
         client: Authenticated Bluesky client.
         handle: The handle of the account performing the blocks (for logging).
         dids: List of DIDs to block.
+        dry_run: If True, log what would be blocked without making any changes.
 
     Note:
         CREATE operations cost 3 rate-limit points (~1,666 creates/hour, ~11,666/day).
@@ -175,6 +178,12 @@ def _block_accounts(client: Client, handle: str, dids: list[str]) -> None:
     assert client.me is not None
     for did in dids:
         blocked_handle = _resolve_handle(client, did)
+        if dry_run:
+            log(
+                f"  [dry run] Would block {blocked_handle} on {handle}",
+                LogColor.WARNING,
+            )
+            continue
         record = models.AppBskyGraphBlock.Record(
             subject=did,
             created_at=client.get_current_time_iso(),
@@ -204,7 +213,12 @@ def main() -> None:
     - ACCOUNT_A_APP_PASSWORD: App password for primary account
     - ACCOUNT_B_HANDLE: Handle for secondary account
     - ACCOUNT_B_APP_PASSWORD: App password for secondary account
+    - DRY_RUN: Set to "true" to log what would be blocked without making changes (optional)
     """
+    dry_run = os.getenv("DRY_RUN", "").lower() == "true"
+    if dry_run:
+        log("⚠ Dry run mode enabled — no changes will be made", LogColor.WARNING)
+
     try:
         handle_a = require_env("ACCOUNT_A_HANDLE")
         app_password_a = require_env("ACCOUNT_A_APP_PASSWORD")
@@ -257,13 +271,13 @@ def main() -> None:
     to_block_on_a = sorted((followers_b - blocks_a) - {did_a})
     if to_block_on_a:
         log(f"🚫 Blocking {len(to_block_on_a)} of B's followers on A...")
-        _block_accounts(client_a, handle_a, to_block_on_a)
+        _block_accounts(client_a, handle_a, to_block_on_a, dry_run=dry_run)
 
     # Everyone who follows A but not B → block on B
     to_block_on_b = sorted(((followers_a - followers_b) - blocks_b) - {did_b})
     if to_block_on_b:
         log(f"🚫 Blocking {len(to_block_on_b)} of A's exclusive followers on B...")
-        _block_accounts(client_b, handle_b, to_block_on_b)
+        _block_accounts(client_b, handle_b, to_block_on_b, dry_run=dry_run)
 
     if not to_block_on_a and not to_block_on_b:
         log("✓ Nothing to do. Accounts are already in sync.", LogColor.SUCCESS)

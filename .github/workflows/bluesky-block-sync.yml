@@ -31,4 +31,5 @@ jobs:
           ACCOUNT_A_APP_PASSWORD: ${{ secrets.ACCOUNT_A_APP_PASSWORD }}
           ACCOUNT_B_HANDLE: ${{ secrets.ACCOUNT_B_HANDLE }}
           ACCOUNT_B_APP_PASSWORD: ${{ secrets.ACCOUNT_B_APP_PASSWORD }}
+          DRY_RUN: ${{ vars.DRY_RUN }}
         run: uv run follow-to-block

@@ -43,6 +43,23 @@ Go to the **Actions** tab in your forked repository and click **Enable workflows
 
 That's it. The sync will run automatically every day.
 
+## Testing before it runs for real
+
+You can do a dry run first to see exactly what would be blocked, without making any changes.
+
+**On GitHub (recommended):**
+
+1. Go to **Settings → Secrets and variables → Actions → Variables** (the *Variables* tab, not Secrets)
+2. Add a variable named `DRY_RUN` with the value `true`
+3. Trigger a manual run from the **Actions** tab — it will log what it would do but make no changes
+4. Once you're happy, delete the `DRY_RUN` variable and run it again for real
+
+**Locally:**
+
+```bash
+DRY_RUN=true uv run follow-to-block
+```
+
 ## Schedule
 
 The sync runs once a day at midnight UTC. This is controlled by [this line in the workflow file](.github/workflows/bluesky-block-sync.yml#L5) — you can change the time there if you'd like.
