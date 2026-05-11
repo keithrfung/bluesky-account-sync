@@ -123,23 +123,6 @@ def get_block_dids(client: Client) -> set[str]:
     return dids
 
 
-def _resolve_handle(client: Client, did: str) -> str:
-    """Resolve a DID to a handle, falling back to the DID on failure.
-
-    Args:
-        client: Authenticated Bluesky client.
-        did: The DID to resolve.
-
-    Returns:
-        The handle if found, otherwise the original DID.
-    """
-    try:
-        profile = client.app.bsky.actor.get_profile({"actor": did})
-        return profile.handle
-    except exceptions.AtProtocolError:
-        return did
-
-
 def _login(handle: str, password: str) -> tuple[Client, str]:
     """Login to a Bluesky account and return the client and DID.
 
@@ -177,12 +160,8 @@ def _block_accounts(
     """
     assert client.me is not None
     for did in dids:
-        blocked_handle = _resolve_handle(client, did)
         if dry_run:
-            log(
-                f"  [dry run] Would block {blocked_handle} on {handle}",
-                LogColor.WARNING,
-            )
+            log(f"  [dry run] Would block {did} on {handle}", LogColor.WARNING)
             continue
         record = models.AppBskyGraphBlock.Record(
             subject=did,
@@ -190,10 +169,10 @@ def _block_accounts(
         )
         try:
             client.app.bsky.graph.block.create(client.me.did, record)
-            log(f"  ✓ Blocked {blocked_handle} on {handle}", LogColor.SUCCESS)
+            log(f"  ✓ Blocked {did} on {handle}", LogColor.SUCCESS)
         except exceptions.AtProtocolError as exc:
             log(
-                f"  ✗ Failed to block {blocked_handle} on {handle}: {exc}",
+                f"  ✗ Failed to block {did} on {handle}: {exc}",
                 LogColor.ERROR,
                 error=True,
             )
