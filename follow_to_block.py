@@ -5,7 +5,6 @@ from __future__ import annotations
 import os
 import sys
 from enum import Enum
-from typing import Set
 
 from atproto import Client, models, exceptions
 
@@ -63,7 +62,7 @@ def require_env(name: str) -> str:
     return value
 
 
-def get_follow_dids(client: Client, actor: str) -> Set[str]:
+def get_follow_dids(client: Client, actor: str) -> set[str]:
     """Fetch all DIDs that a given actor follows.
 
     Uses pagination to retrieve all follows, handling cursors automatically.
@@ -75,7 +74,7 @@ def get_follow_dids(client: Client, actor: str) -> Set[str]:
     Returns:
         A set of DIDs representing all accounts the actor follows.
     """
-    dids: Set[str] = set()
+    dids: set[str] = set()
     cursor: str | None = None
 
     while True:
@@ -93,7 +92,7 @@ def get_follow_dids(client: Client, actor: str) -> Set[str]:
     return dids
 
 
-def get_block_dids(client: Client) -> Set[str]:
+def get_block_dids(client: Client) -> set[str]:
     """Fetch all DIDs that the authenticated user has blocked.
 
     Uses pagination to retrieve all blocks, handling cursors automatically.
@@ -104,7 +103,7 @@ def get_block_dids(client: Client) -> Set[str]:
     Returns:
         A set of DIDs representing all accounts the authenticated user has blocked.
     """
-    dids: Set[str] = set()
+    dids: set[str] = set()
     cursor: str | None = None
 
     while True:
