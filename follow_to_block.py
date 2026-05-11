@@ -130,6 +130,7 @@ def unfollow_account(client: Client, did: str) -> None:
         client: Authenticated Bluesky client.
         did: The DID of the account to unfollow.
     """
+    assert client.me is not None
     cursor: str | None = None
 
     while True:
@@ -170,6 +171,7 @@ def unblock_account(client: Client, did: str) -> None:
         client: Authenticated Bluesky client.
         did: The DID of the account to unblock.
     """
+    assert client.me is not None
     cursor: str | None = None
 
     while True:
@@ -238,6 +240,9 @@ def main() -> None:
     except exceptions.AtProtocolError as exc:
         log(f"Login failed: {exc}", LogColor.ERROR, error=True)
         sys.exit(1)
+
+    assert client_a.me is not None
+    assert client_b.me is not None
 
     did_a = profile_a.did
     did_b = profile_b.did
