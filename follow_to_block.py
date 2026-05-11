@@ -4,9 +4,14 @@ from __future__ import annotations
 
 import os
 import sys
+import time
 from enum import Enum
 
 from atproto import Client, models, exceptions
+
+# Delay between write operations to stay within Bluesky's rate limits.
+# See: https://docs.bsky.app/docs/advanced-guides/rate-limits
+_WRITE_DELAY_SECONDS = 1.0
 
 # ANSI Color codes for prettier logging
 COLOR_RESET = "\033[0m"
@@ -131,10 +136,6 @@ def unfollow_account(client: Client, did: str) -> bool:
 
     Returns:
         True if the follow record was found and deleted, False if not found.
-
-    Note:
-        DELETE operations cost 1 rate-limit point (5,000/hour, 35,000/day).
-        See: https://docs.bsky.app/docs/advanced-guides/rate-limits
     """
     assert client.me is not None
     cursor: str | None = None
@@ -160,6 +161,7 @@ def unfollow_account(client: Client, did: str) -> bool:
                         "rkey": rkey,
                     }
                 )
+                time.sleep(_WRITE_DELAY_SECONDS)
                 return True
 
         cursor = records.cursor
@@ -197,9 +199,6 @@ def _block_accounts(client: Client, handle: str, dids: list[str]) -> None:
         handle: The handle of the account performing the blocks (for logging).
         dids: List of DIDs to block.
 
-    Note:
-        CREATE operations cost 3 rate-limit points (~1,666 creates/hour, ~11,666/day).
-        See: https://docs.bsky.app/docs/advanced-guides/rate-limits
     """
     assert client.me is not None
     for did in dids:
@@ -216,6 +215,7 @@ def _block_accounts(client: Client, handle: str, dids: list[str]) -> None:
                 LogColor.ERROR,
                 error=True,
             )
+        time.sleep(_WRITE_DELAY_SECONDS)
 
 
 def unblock_account(client: Client, did: str) -> bool:
@@ -230,10 +230,6 @@ def unblock_account(client: Client, did: str) -> bool:
 
     Returns:
         True if the block record was found and deleted, False if not found.
-
-    Note:
-        DELETE operations cost 1 rate-limit point (5,000/hour, 35,000/day).
-        See: https://docs.bsky.app/docs/advanced-guides/rate-limits
     """
     assert client.me is not None
     cursor: str | None = None
@@ -259,6 +255,7 @@ def unblock_account(client: Client, did: str) -> bool:
                         "rkey": rkey,
                     }
                 )
+                time.sleep(_WRITE_DELAY_SECONDS)
                 return True
 
         cursor = records.cursor
